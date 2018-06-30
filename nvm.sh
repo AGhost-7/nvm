@@ -2171,73 +2171,6 @@ nvm_npm_global_modules() {
   nvm_echo "$INSTALLS //// $LINKS"
 }
 
-nvm_die_on_prefix() {
-  local NVM_DELETE_PREFIX
-  NVM_DELETE_PREFIX="$1"
-  case "$NVM_DELETE_PREFIX" in
-    0|1) ;;
-    *)
-      nvm_err 'First argument "delete the prefix" must be zero or one'
-      return 1
-    ;;
-  esac
-  local NVM_COMMAND
-  NVM_COMMAND="$2"
-  if [ -z "$NVM_COMMAND" ]; then
-    nvm_err 'Second argument "nvm command" must be nonempty'
-    return 2
-  fi
-
-  # npm first looks at $PREFIX (case-sensitive)
-  # we do not bother to test the value here; if this env var is set, unset it to continue.
-  if [ -n "${PREFIX-}" ]; then
-    nvm deactivate >/dev/null 2>&1
-    nvm_err "nvm is not compatible with the \"PREFIX\" environment variable: currently set to \"${PREFIX}\""
-    nvm_err 'Run `unset PREFIX` to unset it.'
-    return 3
-  fi
-
-  # npm normalizes NPM_CONFIG_-prefixed env vars
-  # https://github.com/npm/npmconf/blob/22827e4038d6eebaafeb5c13ed2b92cf97b8fb82/npmconf.js#L331-L348
-  # https://github.com/npm/npm/blob/5e426a78ca02d0044f8dd26e0c5f881217081cbd/lib/config/core.js#L343-L359
-  #
-  # here, we avoid trying to replicate "which one wins" or testing the value; if any are defined, it errors
-  # until none are left.
-  local NVM_NPM_CONFIG_PREFIX_ENV
-  NVM_NPM_CONFIG_PREFIX_ENV="$(command env | nvm_grep -i NPM_CONFIG_PREFIX | command tail -1 | command awk -F '=' '{print $1}')"
-  if [ -n "${NVM_NPM_CONFIG_PREFIX_ENV-}" ]; then
-    local NVM_CONFIG_VALUE
-    eval "NVM_CONFIG_VALUE=\"\$${NVM_NPM_CONFIG_PREFIX_ENV}\""
-    if [ -n "${NVM_CONFIG_VALUE-}" ]; then
-      nvm deactivate >/dev/null 2>&1
-      nvm_err "nvm is not compatible with the \"${NVM_NPM_CONFIG_PREFIX_ENV}\" environment variable: currently set to \"${NVM_CONFIG_VALUE}\""
-      nvm_err "Run \`unset ${NVM_NPM_CONFIG_PREFIX_ENV}\` to unset it."
-      return 4
-    fi
-  fi
-
-  if ! nvm_has 'npm'; then
-    return
-  fi
-
-  local NVM_NPM_PREFIX
-  NVM_NPM_PREFIX="$(npm config --loglevel=warn get prefix)"
-  if ! (nvm_tree_contains_path "$NVM_DIR" "$NVM_NPM_PREFIX" >/dev/null 2>&1); then
-    if [ "_$NVM_DELETE_PREFIX" = "_1" ]; then
-      npm config --loglevel=warn delete prefix
-    else
-      nvm deactivate >/dev/null 2>&1
-      nvm_err "nvm is not compatible with the npm config \"prefix\" option: currently set to \"$NVM_NPM_PREFIX\""
-      if nvm_has 'npm'; then
-        nvm_err "Run \`npm config delete prefix\` or \`$NVM_COMMAND\` to unset it."
-      else
-        nvm_err "Run \`$NVM_COMMAND\` to unset it."
-      fi
-      return 10
-    fi
-  fi
-}
-
 # Succeeds if $IOJS_VERSION represents an io.js version that has a
 # Solaris binary, fails otherwise.
 # Currently, only io.js 3.3.1 has a Solaris binary available, and it's the
@@ -3039,9 +2972,6 @@ nvm() {
         if [ $NVM_USE_SILENT -eq 1 ]; then
           NVM_USE_CMD="$NVM_USE_CMD --silent"
         fi
-        if ! nvm_die_on_prefix "$NVM_DELETE_PREFIX" "$NVM_USE_CMD"; then
-          return 11
-        fi
       fi
       if [ -n "${NVM_USE_OUTPUT-}" ]; then
         nvm_echo "$NVM_USE_OUTPUT"
@@ -3542,7 +3472,7 @@ nvm() {
         nvm_download nvm_get_latest nvm_has nvm_install_default_packages nvm_curl_use_compression nvm_curl_version \
         nvm_supports_source_options nvm_auto nvm_supports_xz \
         nvm_echo nvm_err nvm_grep nvm_cd \
-        nvm_die_on_prefix nvm_get_make_jobs nvm_get_minor_version \
+        nvm_get_make_jobs nvm_get_minor_version \
         nvm_has_solaris_binary nvm_is_merged_node_version \
         nvm_is_natural_num nvm_is_version_installed \
         nvm_list_aliases nvm_make_alias nvm_print_alias_path \
